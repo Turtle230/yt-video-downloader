@@ -28,46 +28,52 @@ def handle_download():
 
     is_audio = mode in ['mp3', 'ogg']
 
-    # Configuration tuned specifically to bypass datacenter IP blocks on Render
+    # Bypasses bot verification checks on datacenter hosts
     ydl_opts = {
-        'format': 'bestaudio/best' if is_audio else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'best' if is_audio else 'best[ext=mp4]/best',
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
         'cachedir': False,
-        # Force mobile/TV clients to bypass YouTube datacenter IP restrictions
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'tv_embed'],
-                'skip': ['dash', 'hls']
+                'player_client': ['mweb', 'android'],
+                'player_skip': ['js', 'configs', 'webpage']
             }
         },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
         }
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            
-            # Retrieve direct media stream URL
-            direct_url = info.get('url')
-            if not direct_url and 'requested_formats' in info:
-                direct_url = info['requested_formats'][0].get('url')
+
+            direct_url = None
+            if 'formats' in info:
+                # Grab the first available direct HTTP video/audio stream URL
+                for f in info['formats']:
+                    if f.get('url') and 'googlevideo.com' in f.get('url'):
+                        direct_url = f['url']
+                        break
+
+            if not direct_url:
+                direct_url = info.get('url')
 
             if direct_url:
                 return jsonify({
                     "download_url": direct_url,
                     "title": info.get('title', 'download')
                 })
-            
-            return jsonify({"error": "Could not extract direct stream URL."}), 400
+
+            return jsonify({"error": "Unable to extract stream."}), 400
 
     except Exception as e:
         print(f"yt-dlp extraction error: {e}")
-        return jsonify({"error": "Extraction failed. YouTube stream unreachable."}), 500
+        return jsonify({"error": "YouTube blocked this IP request. Try again in a minute."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
