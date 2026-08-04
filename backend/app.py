@@ -46,7 +46,12 @@ def get_yt_opts(mode, output_template):
         'quiet': True,
         'noprogress': True,
         'nocheckcertificate': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'mweb'],
+            }
+        },
     }
     
     if os.path.exists(COOKIES_PATH):
@@ -71,9 +76,9 @@ def get_yt_opts(mode, output_template):
             }]
         })
     else:
-        # Flexible video format matching with automatic FFmpeg merging
+        # Broad fallback format selection with automatic FFmpeg container merging
         opts.update({
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            'format': 'bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
         })
     return opts
