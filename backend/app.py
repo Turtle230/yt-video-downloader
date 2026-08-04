@@ -46,10 +46,11 @@ def get_yt_opts(mode, output_template):
         'quiet': True,
         'noprogress': True,
         'nocheckcertificate': True,
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'mweb'],
+                'player_client': ['android', 'ios', 'web'],
+                'skip': ['hls', 'dash'] # avoids broken manifest calls on restricted IPs
             }
         },
     }
@@ -59,7 +60,7 @@ def get_yt_opts(mode, output_template):
 
     if mode == 'mp3':
         opts.update({
-            'format': 'bestaudio/best',
+            'format': 'ba/b',  # shorthand for bestaudio/best
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -68,7 +69,7 @@ def get_yt_opts(mode, output_template):
         })
     elif mode == 'ogg':
         opts.update({
-            'format': 'bestaudio/best',
+            'format': 'ba/b',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'vorbis',
@@ -76,9 +77,9 @@ def get_yt_opts(mode, output_template):
             }]
         })
     else:
-        # Broad fallback format selection with automatic FFmpeg container merging
+        # Ultimate fallback sequence: best merged -> best combined -> literally any video stream available
         opts.update({
-            'format': 'bestvideo+bestaudio/best',
+            'format': 'bv*+ba/b/bv*/best',
             'merge_output_format': 'mp4',
         })
     return opts
