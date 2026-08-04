@@ -6,78 +6,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!downloadBtn || !urlInput) return;
 
-    function normalizeUrl(url) {
-        const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-        return match ? `https://www.youtube.com/watch?v=${match[1]}` : url;
-    }
-
     downloadBtn.addEventListener('click', async () => {
-        const rawUrl = urlInput.value.trim();
+        const url = urlInput.value.trim();
         const mode = modeSelect ? modeSelect.value : 'mp4';
 
-        if (!rawUrl) {
+        if (!url) {
             updateStatus('Please enter a valid YouTube URL.', 'error');
             return;
         }
 
-        const targetUrl = normalizeUrl(rawUrl);
-        const isAudio = mode === 'mp3' || mode === 'ogg';
-
         setLoadingState(true);
-        updateStatus('Connecting to resolver...');
+        updateStatus('Extracting video stream...');
 
-        // Primary API endpoints to cycle through
-        const instances = [
-            'https://api.cobalt.tools',
-            'https://cobalt-api.kwiatekmons.com'
-        ];
+        try {
+            const response = await fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url, mode })
+            });
 
-        // Strict Cobalt API payload
-        const payload = {
-            url: targetUrl,
-            downloadMode: isAudio ? 'audio' : 'auto'
-        };
+            const data = await response.json();
 
-        if (isAudio) {
-            payload.audioFormat = mode;
-        }
-
-        let resolved = false;
-
-        for (const instance of instances) {
-            try {
-                updateStatus('Resolving stream...');
-
-                const response = await fetch(`${instance}`, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel')) {
-                    const downloadUrl = data.url || data.link;
-                    updateStatus('Stream found! Initiating download...', 'success');
-                    window.location.href = downloadUrl;
-                    resolved = true;
-                    break;
-                } else if (data.text || data.error) {
-                    console.warn(`Instance ${instance} error:`, data.text || data.error);
-                }
-            } catch (err) {
-                console.warn(`Instance ${instance} request failed:`, err);
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Extraction failed.');
             }
-        }
 
-        if (!resolved) {
-            updateStatus('Error: Service busy or rate-limited. Try again shortly.', 'error');
-        }
+            if (data.download_url) {
+                updateStatus('Stream ready! Opening download...', 'success');
+                window.location.href = data.download_url;
+            } else {
+                throw new Error('No stream URL received.');
+            }
 
-        setLoadingState(false);
+        } catch (err) {
+            console.error('Download error:', err);
+            updateStatus(`Error: ${err.message}`, 'error');
+        } finally {
+            setLoadingState(false);
+        }
     });
 
     function updateStatus(message, type = 'info') {
