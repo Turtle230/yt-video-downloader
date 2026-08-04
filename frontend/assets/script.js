@@ -24,18 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAudio = mode === 'mp3' || mode === 'ogg';
 
         setLoadingState(true);
-        updateStatus('Connecting to public resolvers...');
+        updateStatus('Connecting to active resolvers...');
 
-        // Public Cobalt mirrors that do not enforce JWT authorization
+        // Active Cobalt v10 instances
         const instances = [
-            'https://cobalt-api.kwiatekmons.com',
-            'https://co.wuk.sh',
-            'https://api.cobalt.tools'
+            'https://api.cobalt.tools',
+            'https://cobalt.api.sciter.io'
         ];
 
+        // Valid Cobalt v10 API payload format
         const payload = {
             url: targetUrl,
-            downloadMode: isAudio ? 'audio' : 'auto'
+            downloadMode: isAudio ? 'audio' : 'auto',
+            videoQuality: 'max'
         };
 
         if (isAudio) {
@@ -46,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const instance of instances) {
             try {
-                updateStatus(`Resolving via ${new URL(instance).hostname}...`);
+                updateStatus(`Resolving stream...`);
 
                 const response = await fetch(`${instance}/`, {
                     method: 'POST',
@@ -59,22 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
 
-                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel')) {
-                    const downloadUrl = data.url || data.link;
-                    updateStatus('Stream found! Initiating download...', 'success');
-                    window.location.href = downloadUrl;
-                    resolved = true;
-                    break;
+                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel' || data.status === 'picker')) {
+                    const downloadUrl = data.url || data.link || (data.picker && data.picker[0] ? data.picker[0].url : null);
+                    
+                    if (downloadUrl) {
+                        updateStatus('Stream found! Opening download...', 'success');
+                        window.location.href = downloadUrl;
+                        resolved = true;
+                        break;
+                    }
                 } else if (data.text) {
-                    console.warn(`Instance ${instance} error:`, data.text);
+                    console.warn(`Instance ${instance} returned error:`, data.text);
                 }
             } catch (err) {
-                console.warn(`Instance ${instance} request failed:`, err);
+                console.warn(`Failed reaching ${instance}:`, err);
             }
         }
 
         if (!resolved) {
-            updateStatus('Error: All resolvers failed or rate-limited. Try again shortly.', 'error');
+            updateStatus('Error: Resolvers failed or blocked. Try another link.', 'error');
         }
 
         setLoadingState(false);
