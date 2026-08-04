@@ -10,7 +10,6 @@ FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 app = Flask(__name__, static_folder=FRONTEND_DIR)
 CORS(app)
 
-# Serve static frontend files
 @app.route("/")
 def index():
     return send_from_directory(FRONTEND_DIR, "index.html")
@@ -20,11 +19,9 @@ def static_files(filename):
     return send_from_directory(FRONTEND_DIR, filename)
 
 def normalize_youtube_url(url):
-    """Convert short links (youtu.be/ID) to full standard YouTube watch URLs."""
     match = re.search(r'youtu\.be/([a-zA-Z0-9_-]+)', url)
     if match:
-        video_id = match.group(1)
-        return f"https://www.youtube.com/watch?v={video_id}"
+        return f"https://www.youtube.com/watch?v={match.group(1)}"
     return url
 
 @app.route('/download', methods=['POST'])
@@ -39,44 +36,53 @@ def handle_download():
     target_url = normalize_youtube_url(raw_url)
     is_audio = mode in ['mp3', 'ogg']
 
+    # Modern Cobalt v10 Payload Structure
     cobalt_payload = {
         "url": target_url,
         "downloadMode": "audio" if is_audio else "auto",
         "audioFormat": mode if is_audio else "mp3",
-        "videoQuality": "max"
+        "videoQuality": "720",
+        "youtubeVideoCodec": "h264"
     }
 
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://cobalt.tools/"
     }
 
-    try:
-        response = requests.post(
-            "https://api.cobalt.tools/",
-            json=cobalt_payload,
-            headers=headers,
-            timeout=20
-        )
-        
-        res_data = response.json()
+    # Backup instances if main instance rejects the payload
+    instances = [
+        "https://api.cobalt.tools/",
+        "https://co.wuk.sh/"
+    ]
 
-        if response.status_code != 200 or res_data.get("status") == "error":
-            error_msg = res_data.get("text", "Failed to resolve stream link")
-            return jsonify({"error": error_msg}), 400
+    for instance in instances:
+        try:
+            response = requests.post(
+                instance,
+                json=cobalt_payload,
+                headers=headers,
+                timeout=15
+            )
+            
+            res_data = response.json()
+            print(f"Instance [{instance}] Status: {response.status_code}, Body: {res_data}")
 
-        return jsonify({
-            "download_url": res_data.get("url"),
-            "filename": res_data.get("filename", f"download.{mode}")
-        })
+            if response.status_code == 200 and res_data.get("status") in ["tunnel", "redirect", "picker"]:
+                return jsonify({
+                    "download_url": res_data.get("url"),
+                    "filename": res_data.get("filename", f"download.{mode}")
+                })
+            elif res_data.get("text"):
+                error_detail = res_data.get("text")
+                print(f"Cobalt Error Text: {error_detail}")
 
-    except requests.exceptions.RequestException as e:
-        print(f"Cobalt Request Failed: {e}")
-        return jsonify({"error": "External stream resolver unreachable"}), 502
-    except Exception as e:
-        print(f"Backend Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            print(f"Failed contacting {instance}: {e}")
+
+    return jsonify({"error": "Unable to extract stream from YouTube. Try again in a moment."}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
