@@ -7,7 +7,6 @@ from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
 import yt_dlp
 
-# Resolve directory paths for hosting static frontend assets
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 
@@ -17,19 +16,19 @@ CORS(app, expose_headers=["Content-Disposition"])
 DOWNLOAD_DIR = os.path.join(tempfile.gettempdir(), "yt_downloader_temp")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# --- Frontend File Serving Routes ---
+# Cookie configuration
+COOKIES_PATH = os.path.join(BASE_DIR, 'cookies.txt')
+if os.environ.get("YOUTUBE_COOKIES"):
+    with open(COOKIES_PATH, "w") as f:
+        f.write(os.environ.get("YOUTUBE_COOKIES"))
 
 @app.route("/")
 def index():
-    """Serves the main Win95 interface."""
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 @app.route("/<path:filename>")
 def static_files(filename):
-    """Serves CSS, JS, and image assets from the frontend directory."""
     return send_from_directory(FRONTEND_DIR, filename)
-
-# --- Downloader Helper Functions & API ---
 
 def clean_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title)
@@ -40,16 +39,12 @@ def get_yt_opts(mode, output_template):
         'quiet': True,
         'noprogress': True,
         'nocheckcertificate': True,
-        'remote_components': ['ejs:github'],
-        'extractor_args': {
-            'youtube': {
-                'player_js_variant': ['tv'],
-                'player_client': ['tv', 'mweb']
-            }
-        },
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
     
+    if os.path.exists(COOKIES_PATH):
+        opts['cookiefile'] = COOKIES_PATH
+
     if mode == 'mp3':
         opts.update({
             'format': 'bestaudio/best',
@@ -64,7 +59,7 @@ def get_yt_opts(mode, output_template):
             'format': 'bestaudio/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'vorbis', # Uses standard OGG Vorbis encoding
+                'preferredcodec': 'vorbis',
                 'preferredquality': '192',
             }]
         })
@@ -84,7 +79,6 @@ def handle_download():
         return jsonify({"error": "No URL provided"}), 400
 
     try:
-        # Unique prefix identifier for dynamic matching
         unique_prefix = f"dl_{os.urandom(4).hex()}_"
         temp_template = os.path.join(DOWNLOAD_DIR, f"{unique_prefix}%(title)s.%(ext)s")
         opts = get_yt_opts(mode, temp_template)
@@ -92,7 +86,6 @@ def handle_download():
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
         
-        # Locate the exact generated file dynamically
         matching_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{unique_prefix}*"))
         if not matching_files:
             return jsonify({"error": "Downloaded file not found on server"}), 500
