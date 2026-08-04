@@ -1,48 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Downloader.exe</title>
-    <!-- Browser Tab Favicon -->
-    <link rel="icon" type="image/x-icon" href="assets/icon.ico">
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Win95 Media Downloader</title>
+  <link rel="stylesheet" href="https://unpkg.com/98.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-    <div class="window">
-        <!-- Title Bar -->
-        <div class="title-bar">
-            <div class="title-bar-left">
-                <!-- App Icon -->
-                <img src="assets/icon.ico" alt="icon" class="title-bar-icon">
-                <span class="title-bar-text">YouTube Video Downloading Essential Kit.exe</span>
-            </div>
-            <div class="title-bar-controls">
-                <div class="win-btn">_</div>
-                <div class="win-btn">&#9633;</div>
-                <div class="win-btn">&#10005;</div>
-            </div>
-        </div>
-
-        <!-- Window Body -->
-        <div class="window-body">
-            <p class="subtitle">Select your media options below:</p>
-
-            <input type="text" id="url" placeholder="Paste YouTube Link Here...">
-            
-            <select id="mode">
-                <option value="mp4">Video (MP4)</option>
-                <option value="mp3">Audio (MP3)</option>
-                <option value="ogg">Audio (OGG)</option>
-            </select>
-
-            <button type="button" id="downloadBtn">Download</button>
-
-            <div id="status">Ready.</div>
-        </div>
+  <div class="window" style="width: 400px; margin: 50px auto;">
+    <div class="title-bar">
+      <div class="title-bar-text">YouTube_Downloader.exe</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
     </div>
+    <div class="window-body">
+      <p>Enter YouTube Video URL:</p>
+      <div class="field-row-stacked" style="width: 100%">
+        <input id="url-input" type="text" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%;" />
+      </div>
+      
+      <p style="margin-top: 10px;">Format:</p>
+      <select id="mode-select" style="width: 100%;">
+        <option value="mp4">Video (MP4)</option>
+        <option value="mp3">Audio (MP3)</option>
+        <option value="ogg">Audio (OGG)</option>
+      </select>
 
-    <script src="assets/script.js"></script>
+      <br />
+      <button id="download-btn" type="button" style="width: 100%; margin-top: 10px;">Fetch Stream</button>
+      
+      <div id="status-box" style="margin-top: 15px;"></div>
+    </div>
+  </div>
+
+  <script src="assets/script.js" defer></script>
 </body>
 </html>
