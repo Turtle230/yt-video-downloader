@@ -7,6 +7,7 @@ from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
 import yt_dlp
 
+# Resolve directory paths for hosting static frontend assets
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 
@@ -16,19 +17,25 @@ CORS(app, expose_headers=["Content-Disposition"])
 DOWNLOAD_DIR = os.path.join(tempfile.gettempdir(), "yt_downloader_temp")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Cookie configuration
+# Cookie configuration for Render & local execution
 COOKIES_PATH = os.path.join(BASE_DIR, 'cookies.txt')
 if os.environ.get("YOUTUBE_COOKIES"):
     with open(COOKIES_PATH, "w") as f:
         f.write(os.environ.get("YOUTUBE_COOKIES"))
 
+# --- Frontend File Serving Routes ---
+
 @app.route("/")
 def index():
+    """Serves the main Win95 interface."""
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 @app.route("/<path:filename>")
 def static_files(filename):
+    """Serves CSS, JS, and image assets from the frontend directory."""
     return send_from_directory(FRONTEND_DIR, filename)
+
+# --- Downloader Helper Functions & API ---
 
 def clean_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title)
@@ -64,8 +71,10 @@ def get_yt_opts(mode, output_template):
             }]
         })
     else:
+        # Flexible video format matching with automatic FFmpeg merging
         opts.update({
-            'format': 'best[ext=mp4]/best',
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',
         })
     return opts
 
