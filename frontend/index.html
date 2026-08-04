@@ -20,23 +20,15 @@
     <div class="window-body">
       <p>Enter YouTube Video URL:</p>
       <div class="field-row-stacked" style="width: 100%">
-        <input id="url-input" type="text" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%;" />
+        <input id="urlInput" type="text" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%;" />
       </div>
-      
-      <p style="margin-top: 10px;">Format:</p>
-      <select id="mode-select" style="width: 100%;">
-        <option value="mp4">Video (MP4)</option>
-        <option value="mp3">Audio (MP3)</option>
-        <option value="ogg">Audio (OGG)</option>
-      </select>
-
       <br />
-      <button id="download-btn" type="button" style="width: 100%; margin-top: 10px;">Fetch Stream</button>
+      <button id="downloadBtn" style="width: 100%;">Fetch Stream</button>
       
-      <div id="status-box" style="margin-top: 15px;"></div>
+      <div id="status" style="margin-top: 15px;"></div>
     </div>
   </div>
 
-  <script src="assets/script.js" defer></script>
+  <script src="assets/script.js"></script>
 </body>
 </html>
