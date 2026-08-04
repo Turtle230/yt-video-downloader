@@ -17,12 +17,6 @@ CORS(app, expose_headers=["Content-Disposition"])
 DOWNLOAD_DIR = os.path.join(tempfile.gettempdir(), "yt_downloader_temp")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Cookie configuration for Render & local execution
-COOKIES_PATH = os.path.join(BASE_DIR, 'cookies.txt')
-if os.environ.get("YOUTUBE_COOKIES"):
-    with open(COOKIES_PATH, "w") as f:
-        f.write(os.environ.get("YOUTUBE_COOKIES"))
-
 # --- Frontend File Serving Routes ---
 
 @app.route("/")
@@ -47,18 +41,13 @@ def get_yt_opts(mode, output_template):
         'noprogress': True,
         'nocheckcertificate': True,
         'geo_bypass': True,
-        'user_agent': 'Mozilla/5.0 (SmartHUB; SMART-TV; U; Linux/SmartTV) AppleWebKit/537.42',
-        # Force clients that don't enforce strict Cloud IP blocks or PO Tokens
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['tv_embedded', 'mweb', 'android'],
-                'player_skip': ['configs', 'webpage'],
-            }
-        },
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     }
-    
-    if os.path.exists(COOKIES_PATH):
-        opts['cookiefile'] = COOKIES_PATH
+
+    # Pass proxy URL from Render environment variables to bypass Cloud IP bot checks
+    proxy_url = os.environ.get("PROXY_URL")
+    if proxy_url:
+        opts['proxy'] = proxy_url
 
     if mode in ['mp3', 'ogg']:
         codec = 'mp3' if mode == 'mp3' else 'vorbis'
@@ -71,9 +60,9 @@ def get_yt_opts(mode, output_template):
             }]
         })
     else:
-        # Fallback format string: grabs any available combined/video stream
+        # Flexible video stream matching with automatic FFmpeg merging
         opts.update({
-            'format': '0/b/bv*/best',
+            'format': 'bv*+ba/b/bv*/best',
             'merge_output_format': 'mp4',
         })
     return opts
