@@ -1,42 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube Video Downloading Essential Kit.exe</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloading Essential Kit.exe</title>
+    <!-- Standard retro Windows 95 stylesheet -->
+    <link rel="stylesheet" href="https://unpkg.com/98.css">
+    <style>
+        body {
+            background-color: #008080; /* Classic Win95 Teal */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: "Pixelated MS Sans Serif", "MS Sans Serif", Arial, sans-serif;
+        }
+
+        .window {
+            width: 420px;
+            box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+        }
+
+        .title-bar-text {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-box {
+            margin-top: 10px;
+            padding: 4px;
+            background: #fff;
+            border: 2px inset #dfdfdf;
+            font-size: 11px;
+            min-height: 18px;
+            color: #000;
+        }
+
+        .status-error {
+            color: #a00;
+        }
+
+        .status-success {
+            color: #080;
+        }
+
+        iframe {
+            margin-top: 8px;
+            border: none;
+            background: #c0c0c0;
+        }
+    </style>
 </head>
 <body>
-  <div class="window">
-    <div class="title-bar">
-      <div class="title-bar-left">
-        <img class="title-bar-icon" src="https://win98icons.alexmeub.com/icons/png/world-0.png" alt="icon">
-        <span class="title-bar-text">YouTube Video Downloading Essential Kit.exe</span>
-      </div>
-      <div class="title-bar-controls">
-        <div class="win-btn">_</div>
-        <div class="win-btn">❐</div>
-        <div class="win-btn">✕</div>
-      </div>
-    </div>
-    
-    <div class="window-body">
-      <p class="subtitle">Select your media options below:</p>
-      
-      <input id="url-input" type="text" placeholder="Paste YouTube Link Here..." />
-      
-      <select id="mode-select">
-        <option value="mp4">Video (MP4)</option>
-        <option value="mp3">Audio (MP3)</option>
-        <option value="ogg">Audio (OGG)</option>
-      </select>
-      
-      <button id="download-btn" type="button">Download</button>
-      
-      <div id="status-box">Ready.</div>
-    </div>
-  </div>
 
-  <script src="assets/script.js" defer></script>
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-bar-text">
+                🌐 YouTube Video Downloading Essential Kit.exe
+            </div>
+            <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            <p>Select your media options below:</p>
+            
+            <div class="field-row-stacked" style="width: 100%;">
+                <label for="url-input">YouTube URL:</label>
+                <input id="url-input" type="text" style="width: 100%;" placeholder="https://www.youtube.com/watch?v=..." />
+            </div>
+
+            <div class="field-row-stacked" style="width: 100%; margin-top: 8px;">
+                <button id="download-btn" style="width: 100%; height: 30px;">Download</button>
+            </div>
+
+            <div id="status-box" class="status-box">Ready.</div>
+
+            <!-- Client-side iframe container -->
+            <div id="iframe-container"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const downloadBtn = document.getElementById('download-btn');
+            const urlInput = document.getElementById('url-input');
+            const statusBox = document.getElementById('status-box');
+            const iframeContainer = document.getElementById('iframe-container');
+
+            downloadBtn.addEventListener('click', () => {
+                const url = urlInput.value.trim();
+
+                if (!url) {
+                    statusBox.textContent = 'Error: Please enter a YouTube URL.';
+                    statusBox.className = 'status-box status-error';
+                    return;
+                }
+
+                statusBox.textContent = 'Loading client downloader widget...';
+                statusBox.className = 'status-box status-success';
+
+                // Embed client-side downloader widget
+                iframeContainer.innerHTML = `
+                    <iframe 
+                        src="https://yt1s.com.co/api/widget?url=${encodeURIComponent(url)}" 
+                        width="100%" 
+                        height="200px" 
+                        scrolling="no">
+                    </iframe>
+                `;
+            });
+        });
+    </script>
 </body>
 </html>
