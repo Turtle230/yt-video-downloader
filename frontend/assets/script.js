@@ -26,19 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoadingState(true);
         updateStatus('Connecting to resolver...');
 
-        // Primary public endpoints
+        // Working public Cobalt API instances
         const instances = [
-            'https://api.cobalt.tools'
+            'https://api.cobalt.tools',
+            'https://cobalt.api.sciter.io',
+            'https://cobalt-api.m3u8.dev'
         ];
 
-        // Clean Cobalt v10 API payload structure
+        // Minimal, strict Cobalt API v10 payload
         const payload = {
-            url: targetUrl,
-            videoQuality: '720',
-            downloadMode: isAudio ? 'audio' : 'auto'
+            url: targetUrl
         };
 
         if (isAudio) {
+            payload.downloadMode = 'audio';
             payload.audioFormat = mode;
         }
 
