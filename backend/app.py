@@ -36,53 +36,53 @@ def handle_download():
     target_url = normalize_youtube_url(raw_url)
     is_audio = mode in ['mp3', 'ogg']
 
-    # Modern Cobalt v10 Payload Structure
     cobalt_payload = {
         "url": target_url,
         "downloadMode": "audio" if is_audio else "auto",
         "audioFormat": mode if is_audio else "mp3",
-        "videoQuality": "720",
-        "youtubeVideoCodec": "h264"
+        "videoQuality": "720"
     }
 
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Origin": "https://cobalt.tools",
         "Referer": "https://cobalt.tools/"
     }
 
-    # Backup instances if main instance rejects the payload
+    # Public active processing instances
     instances = [
-        "https://api.cobalt.tools/",
-        "https://co.wuk.sh/"
+        "https://api.cobalt.tools",
+        "https://cobalt-api.kwiatekmons.com",
+        "https://co.wuk.sh"
     ]
 
     for instance in instances:
         try:
             response = requests.post(
-                instance,
+                f"{instance}/",
                 json=cobalt_payload,
                 headers=headers,
-                timeout=15
+                timeout=12
             )
             
             res_data = response.json()
-            print(f"Instance [{instance}] Status: {response.status_code}, Body: {res_data}")
+            print(f"[{instance}] Response ({response.status_code}): {res_data}")
 
+            # Cobalt returns status as 'tunnel', 'redirect', or 'picker' on success
             if response.status_code == 200 and res_data.get("status") in ["tunnel", "redirect", "picker"]:
                 return jsonify({
                     "download_url": res_data.get("url"),
                     "filename": res_data.get("filename", f"download.{mode}")
                 })
             elif res_data.get("text"):
-                error_detail = res_data.get("text")
-                print(f"Cobalt Error Text: {error_detail}")
+                print(f"[{instance}] Error message: {res_data.get('text')}")
 
         except Exception as e:
             print(f"Failed contacting {instance}: {e}")
 
-    return jsonify({"error": "Unable to extract stream from YouTube. Try again in a moment."}), 400
+    return jsonify({"error": "Stream provider unavailable. Please try again."}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
