@@ -1,0 +1,182 @@
+:root {
+    --win-bg: #008080;          /* Classic Teal Desktop Background */
+    --win-gray: #c0c0c0;        /* Windows Window Gray */
+    --win-blue: #000080;        /* Active Title Bar Blue */
+    --win-blue-light: #1084d0;  /* Gradient Title Bar End */
+    --win-border-light: #ffffff;
+    --win-border-dark: #808080;
+    --win-border-darker: #000000;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+    font-size: 11px;
+}
+
+body {
+    background-color: var(--win-bg);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* Outer Window Frame with 3D Bevel Border */
+.window {
+    background-color: var(--win-gray);
+    width: 100%;
+    max-width: 420px;
+    padding: 3px;
+    border-top: 2px solid var(--win-border-light);
+    border-left: 2px solid var(--win-border-light);
+    border-right: 2px solid var(--win-border-darker);
+    border-bottom: 2px solid var(--win-border-darker);
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Title Bar */
+.title-bar {
+    background: linear-gradient(90deg, var(--win-blue), var(--win-blue-light));
+    padding: 3px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+}
+
+.title-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.title-bar-icon {
+    width: 16px;
+    height: 16px;
+    image-rendering: pixelated; /* Keeps low-res retro icons crisp */
+}
+
+.title-bar-text {
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.title-bar-controls {
+    display: flex;
+    gap: 2px;
+}
+
+.win-btn {
+    width: 16px;
+    height: 14px;
+    background-color: var(--win-gray);
+    border-top: 1px solid var(--win-border-light);
+    border-left: 1px solid var(--win-border-light);
+    border-right: 1px solid var(--win-border-darker);
+    border-bottom: 1px solid var(--win-border-darker);
+    color: black;
+    font-size: 9px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+}
+
+.win-btn:active {
+    border-top: 1px solid var(--win-border-darker);
+    border-left: 1px solid var(--win-border-darker);
+    border-right: 1px solid var(--win-border-light);
+    border-bottom: 1px solid var(--win-border-light);
+}
+
+/* Content Area */
+.window-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.subtitle {
+    color: black;
+}
+
+/* Sunken Input and Select Elements */
+input[type="text"] {
+    width: 100%;
+    padding: 4px 6px;
+    background-color: #ffffff;
+    color: #000000;
+    border-top: 2px solid var(--win-border-dark);
+    border-left: 2px solid var(--win-border-dark);
+    border-right: 2px solid var(--win-border-light);
+    border-bottom: 2px solid var(--win-border-light);
+    outline: none;
+    box-shadow: inset 1px 1px 0px var(--win-border-darker);
+}
+
+select {
+    width: 100%;
+    padding: 4px 6px;
+    background-color: #ffffff;
+    color: #000000;
+    border-top: 2px solid var(--win-border-dark);
+    border-left: 2px solid var(--win-border-dark);
+    border-right: 2px solid var(--win-border-light);
+    border-bottom: 2px solid var(--win-border-light);
+    outline: none;
+    box-shadow: inset 1px 1px 0px var(--win-border-darker);
+    cursor: pointer;
+}
+
+/* Raised Windows Push-Button */
+button {
+    width: 100%;
+    padding: 6px;
+    background-color: var(--win-gray);
+    color: black;
+    font-weight: bold;
+    border-top: 2px solid var(--win-border-light);
+    border-left: 2px solid var(--win-border-light);
+    border-right: 2px solid var(--win-border-darker);
+    border-bottom: 2px solid var(--win-border-darker);
+    box-shadow: inset -1px -1px 0px var(--win-border-dark);
+    cursor: pointer;
+    outline: none;
+}
+
+button:active {
+    border-top: 2px solid var(--win-border-darker);
+    border-left: 2px solid var(--win-border-darker);
+    border-right: 2px solid var(--win-border-light);
+    border-bottom: 2px solid var(--win-border-light);
+    box-shadow: inset 1px 1px 0px var(--win-border-dark);
+    padding: 7px 5px 5px 7px;
+}
+
+button:disabled {
+    color: var(--win-border-dark);
+    text-shadow: 1px 1px 0px var(--win-border-light);
+    cursor: not-allowed;
+}
+
+/* Sunken Status Box */
+#status {
+    padding: 4px;
+    background-color: var(--win-gray);
+    border-top: 1px solid var(--win-border-dark);
+    border-left: 1px solid var(--win-border-dark);
+    border-right: 1px solid var(--win-border-light);
+    border-bottom: 1px solid var(--win-border-light);
+    min-height: 22px;
+    display: flex;
+    align-items: center;
+}

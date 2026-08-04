@@ -1,0 +1,14 @@
+# Ignore virtual environment
+backend/venv/
+venv/
+
+# Ignore downloaded media files
+backend/downloads/
+*.mp4
+*.webm
+*.m4a
+*.mp3
+
+# Ignore Python cache files
+__pycache__/
+*.pyc

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader.exe</title>
+    <!-- Browser Tab Favicon -->
+    <link rel="icon" type="image/x-icon" href="assets/icon.ico">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="window">
+        <!-- Title Bar -->
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <!-- App Icon -->
+                <img src="assets/icon.ico" alt="icon" class="title-bar-icon">
+                <span class="title-bar-text">YouTube Video Downloading Essential Kit.exe</span>
+            </div>
+            <div class="title-bar-controls">
+                <div class="win-btn">_</div>
+                <div class="win-btn">&#9633;</div>
+                <div class="win-btn">&#10005;</div>
+            </div>
+        </div>
+
+        <!-- Window Body -->
+        <div class="window-body">
+            <p class="subtitle">Select your media options below:</p>
+
+            <input type="text" id="url" placeholder="Paste YouTube Link Here...">
+            
+            <select id="mode">
+                <option value="mp4">Video (MP4)</option>
+                <option value="mp3">Audio (MP3)</option>
+                <option value="ogg">Audio (OGG)</option>
+            </select>
+
+            <button type="button" id="downloadBtn">Download</button>
+
+            <div id="status">Ready.</div>
+        </div>
+    </div>
+
+    <script src="assets/script.js"></script>
+</body>
+</html>
