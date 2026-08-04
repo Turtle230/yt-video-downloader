@@ -6,82 +6,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!downloadBtn || !urlInput) return;
 
-    function normalizeUrl(url) {
-        const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-        return match ? `https://www.youtube.com/watch?v=${match[1]}` : url;
-    }
-
     downloadBtn.addEventListener('click', async () => {
-        const rawUrl = urlInput.value.trim();
+        const url = urlInput.value.trim();
         const mode = modeSelect ? modeSelect.value : 'mp4';
 
-        if (!rawUrl) {
+        if (!url) {
             updateStatus('Please enter a valid YouTube URL.', 'error');
             return;
         }
 
-        const targetUrl = normalizeUrl(rawUrl);
-        const isAudio = mode === 'mp3' || mode === 'ogg';
-
         setLoadingState(true);
-        updateStatus('Connecting to active resolvers...');
+        updateStatus('Extracting video stream...');
 
-        // Active Cobalt v10 instances
-        const instances = [
-            'https://api.cobalt.tools',
-            'https://cobalt.api.sciter.io'
-        ];
+        try {
+            const response = await fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url, mode })
+            });
 
-        // Valid Cobalt v10 API payload format
-        const payload = {
-            url: targetUrl,
-            downloadMode: isAudio ? 'audio' : 'auto',
-            videoQuality: 'max'
-        };
+            const data = await response.json();
 
-        if (isAudio) {
-            payload.audioFormat = mode;
-        }
-
-        let resolved = false;
-
-        for (const instance of instances) {
-            try {
-                updateStatus(`Resolving stream...`);
-
-                const response = await fetch(`${instance}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel' || data.status === 'picker')) {
-                    const downloadUrl = data.url || data.link || (data.picker && data.picker[0] ? data.picker[0].url : null);
-                    
-                    if (downloadUrl) {
-                        updateStatus('Stream found! Opening download...', 'success');
-                        window.location.href = downloadUrl;
-                        resolved = true;
-                        break;
-                    }
-                } else if (data.text) {
-                    console.warn(`Instance ${instance} returned error:`, data.text);
-                }
-            } catch (err) {
-                console.warn(`Failed reaching ${instance}:`, err);
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Server processing error.');
             }
-        }
 
-        if (!resolved) {
-            updateStatus('Error: Resolvers failed or blocked. Try another link.', 'error');
-        }
+            if (data.download_url) {
+                updateStatus('Stream resolved! Downloading...', 'success');
+                window.location.href = data.download_url;
+            } else {
+                throw new Error('No valid download URL returned.');
+            }
 
-        setLoadingState(false);
+        } catch (err) {
+            console.error('Download error:', err);
+            updateStatus(`Error: ${err.message}`, 'error');
+        } finally {
+            setLoadingState(false);
+        }
     });
 
     function updateStatus(message, type = 'info') {
