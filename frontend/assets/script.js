@@ -26,20 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoadingState(true);
         updateStatus('Connecting to resolver...');
 
-        // Working public Cobalt API instances
+        // Primary API endpoints to cycle through
         const instances = [
             'https://api.cobalt.tools',
-            'https://cobalt.api.sciter.io',
-            'https://cobalt-api.m3u8.dev'
+            'https://cobalt-api.kwiatekmons.com'
         ];
 
-        // Minimal, strict Cobalt API v10 payload
+        // Strict Cobalt API payload
         const payload = {
-            url: targetUrl
+            url: targetUrl,
+            downloadMode: isAudio ? 'audio' : 'auto'
         };
 
         if (isAudio) {
-            payload.downloadMode = 'audio';
             payload.audioFormat = mode;
         }
 
@@ -49,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 updateStatus('Resolving stream...');
 
-                const response = await fetch(`${instance}/`, {
+                const response = await fetch(`${instance}`, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -60,22 +59,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const data = await response.json();
 
-                if (response.ok && data.url) {
+                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel')) {
+                    const downloadUrl = data.url || data.link;
                     updateStatus('Stream found! Initiating download...', 'success');
-                    window.location.href = data.url;
+                    window.location.href = downloadUrl;
                     resolved = true;
                     break;
-                } else if (data.text) {
-                    console.warn(`Instance ${instance} error:`, data.text);
-                    updateStatus(`Error: ${data.text}`, 'error');
+                } else if (data.text || data.error) {
+                    console.warn(`Instance ${instance} error:`, data.text || data.error);
                 }
             } catch (err) {
                 console.warn(`Instance ${instance} request failed:`, err);
             }
         }
 
-        if (!resolved && !statusBox.textContent.startsWith('Error:')) {
-            updateStatus('Error: Failed to resolve stream link.', 'error');
+        if (!resolved) {
+            updateStatus('Error: Service busy or rate-limited. Try again shortly.', 'error');
         }
 
         setLoadingState(false);
