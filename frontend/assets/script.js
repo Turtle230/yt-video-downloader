@@ -6,56 +6,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!downloadBtn || !urlInput) return;
 
+    function normalizeUrl(url) {
+        const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+        return match ? `https://www.youtube.com/watch?v=${match[1]}` : url;
+    }
+
     downloadBtn.addEventListener('click', async () => {
-        const url = urlInput.value.trim();
+        const rawUrl = urlInput.value.trim();
         const mode = modeSelect ? modeSelect.value : 'mp4';
 
-        if (!url) {
+        if (!rawUrl) {
             updateStatus('Please enter a valid YouTube URL.', 'error');
             return;
         }
 
-        // Disable UI controls during extraction
+        const targetUrl = normalizeUrl(rawUrl);
+        const isAudio = mode === 'mp3' || mode === 'ogg';
+
         setLoadingState(true);
-        updateStatus('Connecting to server... Resolving media stream...');
+        updateStatus('Connecting to resolver...');
 
-        try {
-            const response = await fetch('/download', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: url, mode: mode })
-            });
+        const instances = [
+            'https://api.cobalt.tools',
+            'https://co.wuk.sh',
+            'https://cobalt-api.kwiatekmons.com'
+        ];
 
-            const data = await response.json();
+        const payload = {
+            url: targetUrl,
+            downloadMode: isAudio ? 'audio' : 'auto',
+            audioFormat: isAudio ? mode : 'mp3',
+            videoQuality: '720'
+        };
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Failed to resolve download stream.');
+        let resolved = false;
+
+        for (const instance of instances) {
+            try {
+                updateStatus('Resolving stream...');
+
+                const response = await fetch(`${instance}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.url) {
+                    updateStatus('Stream found! Initiating download...', 'success');
+
+                    // Trigger direct browser download
+                    window.location.href = data.url;
+                    resolved = true;
+                    break;
+                }
+            } catch (err) {
+                console.warn(`Instance ${instance} failed:`, err);
             }
-
-            if (data.download_url) {
-                updateStatus('Stream found! Initiating download...', 'success');
-                
-                // Trigger browser download via direct URL redirection
-                window.location.href = data.download_url;
-            } else {
-                throw new Error('No download URL returned from server.');
-            }
-
-        } catch (err) {
-            console.error('Download error:', err);
-            updateStatus(`Error: ${err.message}`, 'error');
-        } finally {
-            setLoadingState(false);
         }
+
+        if (!resolved) {
+            updateStatus('Error: Failed to resolve stream link.', 'error');
+        }
+
+        setLoadingState(false);
     });
 
     function updateStatus(message, type = 'info') {
         if (!statusBox) return;
         statusBox.textContent = message;
-        
-        // Reset classes
+
         statusBox.className = 'status-box';
         if (type === 'error') {
             statusBox.classList.add('status-error');
@@ -68,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.disabled = isLoading;
         urlInput.disabled = isLoading;
         if (modeSelect) modeSelect.disabled = isLoading;
-        
+
         downloadBtn.textContent = isLoading ? 'Processing...' : 'Download';
     }
 });
