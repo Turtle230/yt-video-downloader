@@ -3,15 +3,33 @@ import re
 import glob
 import tempfile
 import traceback
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
 import yt_dlp
 
-app = Flask(__name__)
+# Resolve directory paths for hosting static frontend assets
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
+
+app = Flask(__name__, static_folder=FRONTEND_DIR)
 CORS(app, expose_headers=["Content-Disposition"])
 
 DOWNLOAD_DIR = os.path.join(tempfile.gettempdir(), "yt_downloader_temp")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+# --- Frontend File Serving Routes ---
+
+@app.route("/")
+def index():
+    """Serves the main Win95 interface."""
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+@app.route("/<path:filename>")
+def static_files(filename):
+    """Serves CSS, JS, and image assets from the frontend directory."""
+    return send_from_directory(FRONTEND_DIR, filename)
+
+# --- Downloader Helper Functions & API ---
 
 def clean_filename(title):
     return re.sub(r'[\\/*?:"<>|]', "", title)
@@ -74,7 +92,7 @@ def handle_download():
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
         
-        # Locate the exact generated file dynamically (handles .ogg / .opus conversion edge cases)
+        # Locate the exact generated file dynamically
         matching_files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{unique_prefix}*"))
         if not matching_files:
             return jsonify({"error": "Downloaded file not found on server"}), 500
@@ -107,4 +125,5 @@ def handle_download():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
