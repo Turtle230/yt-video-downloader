@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Video Downloading Essential Kit.exe</title>
-    <!-- Standard retro Windows 95 stylesheet -->
     <link rel="stylesheet" href="https://unpkg.com/98.css">
     <style>
         body {
-            background-color: #008080; /* Classic Win95 Teal */
+            background-color: #008080;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -18,38 +17,62 @@
         }
 
         .window {
-            width: 420px;
-            box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+            width: 440px;
         }
 
-        .title-bar-text {
+        .window-body {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
             gap: 6px;
         }
 
+        #url-input, select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #download-btn {
+            width: 100%;
+            height: 32px;
+            font-weight: bold;
+        }
+
         .status-box {
-            margin-top: 10px;
             padding: 4px;
             background: #fff;
             border: 2px inset #dfdfdf;
             font-size: 11px;
-            min-height: 18px;
+            min-height: 16px;
             color: #000;
         }
 
-        .status-error {
-            color: #a00;
-        }
+        .status-error { color: #a00; }
+        .status-success { color: #080; }
 
-        .status-success {
-            color: #080;
-        }
-
-        iframe {
-            margin-top: 8px;
-            border: none;
+        /* Container designed to crop out the third-party logo */
+        .widget-wrapper {
+            width: 100%;
+            height: 140px;
+            overflow: hidden;
+            position: relative;
+            display: none;
+            border: 2px inset #dfdfdf;
             background: #c0c0c0;
+        }
+
+        .widget-wrapper iframe {
+            width: 100%;
+            height: 300px;
+            border: none;
+            position: absolute;
+            top: -75px; /* Shifts the iframe up to clip the red icon */
+            left: 0;
         }
     </style>
 </head>
@@ -67,21 +90,23 @@
             </div>
         </div>
         <div class="window-body">
-            <p>Select your media options below:</p>
+            <p style="margin: 0;">Select your media options below:</p>
             
-            <div class="field-row-stacked" style="width: 100%;">
-                <label for="url-input">YouTube URL:</label>
-                <input id="url-input" type="text" style="width: 100%;" placeholder="https://www.youtube.com/watch?v=..." />
+            <div class="input-group">
+                <input id="url-input" type="text" placeholder="https://youtu.be/..." />
+                <select id="format-select">
+                    <option value="mp4">Video (MP4)</option>
+                    <option value="mp3">Audio (MP3)</option>
+                </select>
             </div>
 
-            <div class="field-row-stacked" style="width: 100%; margin-top: 8px;">
-                <button id="download-btn" style="width: 100%; height: 30px;">Download</button>
+            <button id="download-btn">Download</button>
+
+            <div id="status-box" class="status-box"></div>
+
+            <div id="widget-wrapper" class="widget-wrapper">
+                <iframe id="widget-frame" src="about:blank"></iframe>
             </div>
-
-            <div id="status-box" class="status-box">Ready.</div>
-
-            <!-- Client-side iframe container -->
-            <div id="iframe-container"></div>
         </div>
     </div>
 
@@ -90,7 +115,8 @@
             const downloadBtn = document.getElementById('download-btn');
             const urlInput = document.getElementById('url-input');
             const statusBox = document.getElementById('status-box');
-            const iframeContainer = document.getElementById('iframe-container');
+            const widgetWrapper = document.getElementById('widget-wrapper');
+            const widgetFrame = document.getElementById('widget-frame');
 
             downloadBtn.addEventListener('click', () => {
                 const url = urlInput.value.trim();
@@ -98,21 +124,15 @@
                 if (!url) {
                     statusBox.textContent = 'Error: Please enter a YouTube URL.';
                     statusBox.className = 'status-box status-error';
+                    widgetWrapper.style.display = 'none';
                     return;
                 }
 
-                statusBox.textContent = 'Loading client downloader widget...';
+                statusBox.textContent = 'Processing request...';
                 statusBox.className = 'status-box status-success';
 
-                // Embed client-side downloader widget
-                iframeContainer.innerHTML = `
-                    <iframe 
-                        src="https://yt1s.com.co/api/widget?url=${encodeURIComponent(url)}" 
-                        width="100%" 
-                        height="200px" 
-                        scrolling="no">
-                    </iframe>
-                `;
+                widgetFrame.src = `https://yt1s.com.co/api/widget?url=${encodeURIComponent(url)}`;
+                widgetWrapper.style.display = 'block';
             });
         });
     </script>
