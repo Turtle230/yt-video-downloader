@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setLoadingState(true);
-        updateStatus('Extracting video stream...');
+        updateStatus('Downloading & processing stream on server...');
 
         try {
             const response = await fetch('/download', {
@@ -27,18 +27,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ url, mode })
             });
 
-            const data = await response.json();
-
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Server processing error.');
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Server processing error.');
             }
 
-            if (data.download_url) {
-                updateStatus('Stream resolved! Downloading...', 'success');
-                window.location.href = data.download_url;
-            } else {
-                throw new Error('No valid download URL returned.');
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            
+            // Extract filename from headers if available
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let fileName = 'download.mp4';
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
             }
+
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+
+            updateStatus('Download complete!', 'success');
 
         } catch (err) {
             console.error('Download error:', err);

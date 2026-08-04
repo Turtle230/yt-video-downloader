@@ -1,5 +1,6 @@
 import os
-from flask import Flask, request, send_from_directory, jsonify
+import tempfile
+from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
 
@@ -27,53 +28,35 @@ def handle_download():
         return jsonify({"error": "Please enter a valid URL."}), 400
 
     is_audio = mode in ['mp3', 'ogg']
-
-    # Bypasses bot verification checks on datacenter hosts
+    temp_dir = tempfile.mkdtemp()
+    
     ydl_opts = {
-        'format': 'best' if is_audio else 'best[ext=mp4]/best',
+        'format': 'bestaudio/best' if is_audio else 'best[ext=mp4]/best',
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
-        'cachedir': False,
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'android'],
-                'player_skip': ['js', 'configs', 'webpage']
+                'player_client': ['android', 'ios']
             }
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
         }
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-            direct_url = None
-            if 'formats' in info:
-                # Grab the first available direct HTTP video/audio stream URL
-                for f in info['formats']:
-                    if f.get('url') and 'googlevideo.com' in f.get('url'):
-                        direct_url = f['url']
-                        break
-
-            if not direct_url:
-                direct_url = info.get('url')
-
-            if direct_url:
-                return jsonify({
-                    "download_url": direct_url,
-                    "title": info.get('title', 'download')
-                })
-
-            return jsonify({"error": "Unable to extract stream."}), 400
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            
+            return send_file(
+                filename,
+                as_attachment=True,
+                download_name=os.path.basename(filename)
+            )
 
     except Exception as e:
-        print(f"yt-dlp extraction error: {e}")
-        return jsonify({"error": "YouTube blocked this IP request. Try again in a minute."}), 500
+        print(f"yt-dlp download error: {e}")
+        return jsonify({"error": "Failed to process download stream."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
