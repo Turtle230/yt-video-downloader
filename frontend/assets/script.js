@@ -6,46 +6,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!downloadBtn || !urlInput) return;
 
+    function normalizeUrl(url) {
+        const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+        return match ? `https://www.youtube.com/watch?v=${match[1]}` : url;
+    }
+
     downloadBtn.addEventListener('click', async () => {
-        const url = urlInput.value.trim();
+        const rawUrl = urlInput.value.trim();
         const mode = modeSelect ? modeSelect.value : 'mp4';
 
-        if (!url) {
+        if (!rawUrl) {
             updateStatus('Please enter a valid YouTube URL.', 'error');
             return;
         }
 
+        const targetUrl = normalizeUrl(rawUrl);
+        const isAudio = mode === 'mp3' || mode === 'ogg';
+
         setLoadingState(true);
-        updateStatus('Extracting video stream...');
+        updateStatus('Connecting to public resolvers...');
 
-        try {
-            const response = await fetch('/download', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url, mode })
-            });
+        // Public Cobalt mirrors that do not enforce JWT authorization
+        const instances = [
+            'https://cobalt-api.kwiatekmons.com',
+            'https://co.wuk.sh',
+            'https://api.cobalt.tools'
+        ];
 
-            const data = await response.json();
+        const payload = {
+            url: targetUrl,
+            downloadMode: isAudio ? 'audio' : 'auto'
+        };
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Extraction failed.');
-            }
-
-            if (data.download_url) {
-                updateStatus('Stream ready! Opening download...', 'success');
-                window.location.href = data.download_url;
-            } else {
-                throw new Error('No stream URL received.');
-            }
-
-        } catch (err) {
-            console.error('Download error:', err);
-            updateStatus(`Error: ${err.message}`, 'error');
-        } finally {
-            setLoadingState(false);
+        if (isAudio) {
+            payload.audioFormat = mode;
         }
+
+        let resolved = false;
+
+        for (const instance of instances) {
+            try {
+                updateStatus(`Resolving via ${new URL(instance).hostname}...`);
+
+                const response = await fetch(`${instance}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && (data.url || data.status === 'redirect' || data.status === 'tunnel')) {
+                    const downloadUrl = data.url || data.link;
+                    updateStatus('Stream found! Initiating download...', 'success');
+                    window.location.href = downloadUrl;
+                    resolved = true;
+                    break;
+                } else if (data.text) {
+                    console.warn(`Instance ${instance} error:`, data.text);
+                }
+            } catch (err) {
+                console.warn(`Instance ${instance} request failed:`, err);
+            }
+        }
+
+        if (!resolved) {
+            updateStatus('Error: All resolvers failed or rate-limited. Try again shortly.', 'error');
+        }
+
+        setLoadingState(false);
     });
 
     function updateStatus(message, type = 'info') {
