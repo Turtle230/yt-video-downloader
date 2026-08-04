@@ -1,102 +1,74 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const downloadBtn = document.getElementById('downloadBtn');
-    const urlInput = document.getElementById('url');
-    const modeSelect = document.getElementById('mode');
-    const statusDiv = document.getElementById('status');
+    const downloadBtn = document.getElementById('download-btn');
+    const urlInput = document.getElementById('url-input');
+    const modeSelect = document.getElementById('mode-select');
+    const statusBox = document.getElementById('status-box');
 
-    let timerInterval = null;
+    if (!downloadBtn || !urlInput) return;
 
-    downloadBtn.addEventListener('click', handleDownload);
-
-    async function handleDownload() {
+    downloadBtn.addEventListener('click', async () => {
         const url = urlInput.value.trim();
-        const mode = modeSelect.value;
+        const mode = modeSelect ? modeSelect.value : 'mp4';
 
         if (!url) {
-            updateStatus('Error: Please enter a YouTube URL.');
+            updateStatus('Please enter a valid YouTube URL.', 'error');
             return;
         }
 
-        setFormState(true);
-        startTimer();
+        // Disable UI controls during extraction
+        setLoadingState(true);
+        updateStatus('Connecting to server... Resolving media stream...');
 
         try {
             const response = await fetch('/download', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, mode })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url, mode: mode })
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server error (${response.status})`);
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Failed to resolve download stream.');
             }
 
-            const blob = await response.blob();
-            const filename = extractFilename(response, mode);
-            triggerFileDownload(blob, filename);
-
-            const totalTime = stopTimer();
-            updateStatus(`Completed in ${totalTime}s! Ready.`);
-        } catch (err) {
-            stopTimer();
-            updateStatus(`Error: ${err.message}`);
-        } finally {
-            setFormState(false);
-        }
-    }
-
-    /* Helper Functions */
-
-    function setFormState(disabled) {
-        downloadBtn.disabled = disabled;
-        urlInput.disabled = disabled;
-        modeSelect.disabled = disabled;
-    }
-
-    function updateStatus(text) {
-        statusDiv.textContent = text;
-    }
-
-    function startTimer() {
-        let seconds = 0;
-        updateStatus('Connecting to server (waking up instance)... 0s');
-
-        timerInterval = setInterval(() => {
-            seconds++;
-            if (seconds < 15) {
-                updateStatus(`Connecting to server (waking up instance)... ${seconds}s`);
+            if (data.download_url) {
+                updateStatus('Stream found! Initiating download...', 'success');
+                
+                // Trigger browser download via direct URL redirection
+                window.location.href = data.download_url;
             } else {
-                updateStatus(`Processing & converting media... ${seconds}s`);
+                throw new Error('No download URL returned from server.');
             }
-        }, 1000);
-    }
 
-    function stopTimer() {
-        if (!timerInterval) return 0;
-        const elapsedText = statusDiv.textContent.match(/\d+/g);
-        const finalSeconds = elapsedText ? elapsedText[elapsedText.length - 1] : 0;
-        clearInterval(timerInterval);
-        timerInterval = null;
-        return finalSeconds;
-    }
-
-    function extractFilename(response, fallbackMode) {
-        const header = response.headers.get('Content-Disposition');
-        if (header && header.includes('filename=')) {
-            return header.split('filename=')[1].replace(/["']/g, '');
+        } catch (err) {
+            console.error('Download error:', err);
+            updateStatus(`Error: ${err.message}`, 'error');
+        } finally {
+            setLoadingState(false);
         }
-        return `download.${fallbackMode}`;
+    });
+
+    function updateStatus(message, type = 'info') {
+        if (!statusBox) return;
+        statusBox.textContent = message;
+        
+        // Reset classes
+        statusBox.className = 'status-box';
+        if (type === 'error') {
+            statusBox.classList.add('status-error');
+        } else if (type === 'success') {
+            statusBox.classList.add('status-success');
+        }
     }
 
-    function triggerFileDownload(blob, filename) {
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(downloadUrl);
+    function setLoadingState(isLoading) {
+        downloadBtn.disabled = isLoading;
+        urlInput.disabled = isLoading;
+        if (modeSelect) modeSelect.disabled = isLoading;
+        
+        downloadBtn.textContent = isLoading ? 'Processing...' : 'Download';
     }
 });
