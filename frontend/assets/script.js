@@ -26,19 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoadingState(true);
         updateStatus('Connecting to resolver...');
 
-        // Updated working public Cobalt instances
+        // Primary public endpoints
         const instances = [
-            'https://api.cobalt.tools',
-            'https://cobalt.stream'
+            'https://api.cobalt.tools'
         ];
 
-        // Construct clean payload strictly based on mode to prevent 400 errors
-        const payload = { url: targetUrl };
+        // Clean Cobalt v10 API payload structure
+        const payload = {
+            url: targetUrl,
+            videoQuality: '720',
+            downloadMode: isAudio ? 'audio' : 'auto'
+        };
+
         if (isAudio) {
-            payload.downloadMode = 'audio';
             payload.audioFormat = mode;
-        } else {
-            payload.videoQuality = '720';
         }
 
         let resolved = false;
@@ -65,13 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 } else if (data.text) {
                     console.warn(`Instance ${instance} error:`, data.text);
+                    updateStatus(`Error: ${data.text}`, 'error');
                 }
             } catch (err) {
                 console.warn(`Instance ${instance} request failed:`, err);
             }
         }
 
-        if (!resolved) {
+        if (!resolved && !statusBox.textContent.startsWith('Error:')) {
             updateStatus('Error: Failed to resolve stream link.', 'error');
         }
 
