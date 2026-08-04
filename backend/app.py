@@ -44,9 +44,9 @@ def get_yt_opts(mode, output_template):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     }
 
-    # Pass proxy URL from Render environment variables to bypass Cloud IP bot checks
-    proxy_url = os.environ.get("PROXY_URL")
-    if proxy_url:
+    # Safely load and validate PROXY_URL
+    proxy_url = os.environ.get("PROXY_URL", "").strip()
+    if proxy_url and not proxy_url.endswith(":port") and "your-proxy" not in proxy_url:
         opts['proxy'] = proxy_url
 
     if mode in ['mp3', 'ogg']:
@@ -60,7 +60,6 @@ def get_yt_opts(mode, output_template):
             }]
         })
     else:
-        # Flexible video stream matching with automatic FFmpeg merging
         opts.update({
             'format': 'bv*+ba/b/bv*/best',
             'merge_output_format': 'mp4',
