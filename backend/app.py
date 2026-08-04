@@ -46,11 +46,13 @@ def get_yt_opts(mode, output_template):
         'quiet': True,
         'noprogress': True,
         'nocheckcertificate': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'geo_bypass': True,
+        'user_agent': 'Mozilla/5.0 (SmartHUB; SMART-TV; U; Linux/SmartTV) AppleWebKit/537.42',
+        # Force clients that don't enforce strict Cloud IP blocks or PO Tokens
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'web'],
-                'skip': ['hls', 'dash'] # avoids broken manifest calls on restricted IPs
+                'player_client': ['tv_embedded', 'mweb', 'android'],
+                'player_skip': ['configs', 'webpage'],
             }
         },
     }
@@ -58,28 +60,20 @@ def get_yt_opts(mode, output_template):
     if os.path.exists(COOKIES_PATH):
         opts['cookiefile'] = COOKIES_PATH
 
-    if mode == 'mp3':
-        opts.update({
-            'format': 'ba/b',  # shorthand for bestaudio/best
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }]
-        })
-    elif mode == 'ogg':
+    if mode in ['mp3', 'ogg']:
+        codec = 'mp3' if mode == 'mp3' else 'vorbis'
         opts.update({
             'format': 'ba/b',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'vorbis',
+                'preferredcodec': codec,
                 'preferredquality': '192',
             }]
         })
     else:
-        # Ultimate fallback sequence: best merged -> best combined -> literally any video stream available
+        # Fallback format string: grabs any available combined/video stream
         opts.update({
-            'format': 'bv*+ba/b/bv*/best',
+            'format': '0/b/bv*/best',
             'merge_output_format': 'mp4',
         })
     return opts
