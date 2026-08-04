@@ -9,6 +9,10 @@ backend/downloads/
 *.m4a
 *.mp3
 
+# Ignore sensitive credentials & cookies
+backend/cookies.txt
+cookies.txt
+
 # Ignore Python cache files
 __pycache__/
 *.pyc
