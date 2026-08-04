@@ -26,18 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoadingState(true);
         updateStatus('Connecting to resolver...');
 
+        // Updated working public Cobalt instances
         const instances = [
             'https://api.cobalt.tools',
-            'https://co.wuk.sh',
-            'https://cobalt-api.kwiatekmons.com'
+            'https://cobalt.stream'
         ];
 
-        const payload = {
-            url: targetUrl,
-            downloadMode: isAudio ? 'audio' : 'auto',
-            audioFormat: isAudio ? mode : 'mp3',
-            videoQuality: '720'
-        };
+        // Construct clean payload strictly based on mode to prevent 400 errors
+        const payload = { url: targetUrl };
+        if (isAudio) {
+            payload.downloadMode = 'audio';
+            payload.audioFormat = mode;
+        } else {
+            payload.videoQuality = '720';
+        }
 
         let resolved = false;
 
@@ -58,14 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response.ok && data.url) {
                     updateStatus('Stream found! Initiating download...', 'success');
-
-                    // Trigger direct browser download
                     window.location.href = data.url;
                     resolved = true;
                     break;
+                } else if (data.text) {
+                    console.warn(`Instance ${instance} error:`, data.text);
                 }
             } catch (err) {
-                console.warn(`Instance ${instance} failed:`, err);
+                console.warn(`Instance ${instance} request failed:`, err);
             }
         }
 
@@ -79,20 +81,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStatus(message, type = 'info') {
         if (!statusBox) return;
         statusBox.textContent = message;
-
         statusBox.className = 'status-box';
-        if (type === 'error') {
-            statusBox.classList.add('status-error');
-        } else if (type === 'success') {
-            statusBox.classList.add('status-success');
-        }
+        if (type === 'error') statusBox.classList.add('status-error');
+        if (type === 'success') statusBox.classList.add('status-success');
     }
 
     function setLoadingState(isLoading) {
         downloadBtn.disabled = isLoading;
         urlInput.disabled = isLoading;
         if (modeSelect) modeSelect.disabled = isLoading;
-
         downloadBtn.textContent = isLoading ? 'Processing...' : 'Download';
     }
 });
