@@ -8,17 +8,20 @@ import yt_dlp
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 COOKIES_PATH = os.path.join(BASE_DIR, 'cookies.txt')
+HAS_COOKIES = os.path.exists(COOKIES_PATH)
 
-# Try these YouTube "player clients" in order until one works.
-# YouTube patches which ones bypass bot-detection fairly often, so this
-# list may need updating over time - if downloads start failing again,
-# that's the first thing to revisit.
+# Player-client fallback order.
+# 'web' is listed first because it's the client that actually honors
+# cookies properly - since YouTube now requires signed-in auth for many
+# requests, this needs to be tried first, not buried behind clients that
+# don't use cookies well anyway. The rest remain as backups in case a
+# specific video/endpoint behaves differently.
 PLAYER_CLIENT_FALLBACKS = [
+    ['web'],
     ['tv_embedded'],
     ['web_creator'],
-    ['android', 'ios'],
-    ['web_safari'],
     ['mweb'],
+    ['android', 'ios'],
 ]
 
 app = Flask(__name__, static_folder=FRONTEND_DIR)
@@ -46,7 +49,7 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client):
         'extractor_args': {'youtube': {'player_client': player_client}},
     }
 
-    if os.path.exists(COOKIES_PATH):
+    if HAS_COOKIES:
         ydl_opts['cookiefile'] = COOKIES_PATH
 
     if is_audio:
@@ -104,12 +107,16 @@ def handle_download():
 
         except Exception as e:
             last_error = e
-            print(f"yt-dlp failed with player_client={player_client}: {e}")
+            print(f"yt-dlp failed with player_client={player_client} (cookies={'yes' if HAS_COOKIES else 'no'}): {e}")
             shutil.rmtree(temp_dir, ignore_errors=True)
             continue  # try the next player client
 
-    # every client in the fallback list failed
-    return jsonify({"error": f"Failed to process download: {str(last_error)}"}), 500
+    if not HAS_COOKIES:
+        hint = " No cookies.txt was found on the server - this is very likely why every client failed."
+    else:
+        hint = ""
+
+    return jsonify({"error": f"Failed to process download: {str(last_error)}.{hint}"}), 500
 
 
 if __name__ == '__main__':
