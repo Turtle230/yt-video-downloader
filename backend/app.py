@@ -62,7 +62,7 @@ def static_files(filename):
 
 def build_ydl_opts(temp_dir, is_audio, mode, player_client):
     ydl_opts = {
-        'format': 'bestaudio/best' if is_audio else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'bestaudio/best' if is_audio else 'bv*+ba/b',
         'merge_output_format': None if is_audio else 'mp4',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'quiet': True,
