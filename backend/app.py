@@ -15,8 +15,22 @@ _COOKIE_CANDIDATES = [
     '/etc/secrets/cookies.txt',
     os.path.join(BASE_DIR, 'cookies.txt'),
 ]
-COOKIES_PATH = next((p for p in _COOKIE_CANDIDATES if os.path.exists(p)), None)
-HAS_COOKIES = COOKIES_PATH is not None
+_source_cookie_path = next((p for p in _COOKIE_CANDIDATES if os.path.exists(p)), None)
+
+COOKIES_PATH = None
+HAS_COOKIES = False
+
+if _source_cookie_path:
+    # /etc/secrets is read-only, but yt-dlp needs to write updated cookie
+    # values back to the file as it uses them - so copy it into a writable
+    # location once at startup and use that copy instead.
+    try:
+        writable_cookie_dir = tempfile.mkdtemp(prefix='cookies_')
+        COOKIES_PATH = os.path.join(writable_cookie_dir, 'cookies.txt')
+        shutil.copyfile(_source_cookie_path, COOKIES_PATH)
+        HAS_COOKIES = True
+    except Exception as e:
+        print(f"Failed to copy cookies.txt to a writable location: {e}")
 
 # Player-client fallback order.
 # 'web' is listed first because it's the client that actually honors
