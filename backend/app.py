@@ -7,8 +7,16 @@ import yt_dlp
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
-COOKIES_PATH = os.path.join(BASE_DIR, 'cookies.txt')
-HAS_COOKIES = os.path.exists(COOKIES_PATH)
+
+# Render always places secret files at /etc/secrets/<filename>, regardless
+# of the service's Root Directory setting - check there first. Fall back to
+# a local cookies.txt next to app.py for local development on your laptop.
+_COOKIE_CANDIDATES = [
+    '/etc/secrets/cookies.txt',
+    os.path.join(BASE_DIR, 'cookies.txt'),
+]
+COOKIES_PATH = next((p for p in _COOKIE_CANDIDATES if os.path.exists(p)), None)
+HAS_COOKIES = COOKIES_PATH is not None
 
 # Player-client fallback order.
 # 'web' is listed first because it's the client that actually honors
