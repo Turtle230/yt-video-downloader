@@ -2,26 +2,18 @@ import os
 import shutil
 import subprocess
 import tempfile
+import static_ffmpeg
 from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
 
+# Initialize static FFmpeg binaries and add them to PATH
+static_ffmpeg.add_paths()
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 
-def get_ffmpeg_binary():
-    """Safely obtain system ffmpeg or fallback to imageio_ffmpeg."""
-    system_ffmpeg = shutil.which('ffmpeg')
-    if system_ffmpeg:
-        return system_ffmpeg
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception as e:
-        print(f"Warning: Could not load imageio_ffmpeg: {e}")
-        return None
-
-# YouTube JS runtime environment check
+# YouTube JS runtime environment check (Deno)
 _DENO_BIN_CANDIDATES = [
     os.path.abspath(os.path.join(BASE_DIR, '..', '.deno', 'bin')),
     os.path.join(os.path.expanduser('~'), '.deno', 'bin'),
@@ -77,7 +69,7 @@ def index():
 def static_files(filename):
     return send_from_directory(FRONTEND_DIR, filename)
 
-def build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe):
+def build_ydl_opts(temp_dir, is_audio, mode, player_client):
     ydl_opts = {
         'format': 'bestaudio/best' if is_audio else 'bv*+ba/b',
         'merge_output_format': None if is_audio else 'mp4',
@@ -89,9 +81,6 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe):
         'remote_components': ['ejs:github'],
     }
 
-    if ffmpeg_exe:
-        ydl_opts['ffmpeg_location'] = ffmpeg_exe
-
     if player_client is not None:
         ydl_opts['extractor_args'] = {'youtube': {'player_client': player_client}}
 
@@ -99,9 +88,12 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe):
         ydl_opts['cookiefile'] = COOKIES_PATH
 
     if is_audio:
+        # Fix: yt-dlp requires 'vorbis' or 'opus' for OGG containers instead of 'ogg'
+        codec = 'vorbis' if mode == 'ogg' else mode
+        
         ydl_opts['postprocessors'] = [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': mode,
+            'preferredcodec': codec,
             'preferredquality': '192',
         }]
 
@@ -118,12 +110,11 @@ def handle_download():
             return jsonify({"error": "Please enter a valid YouTube URL."}), 400
 
         is_audio = mode in ['mp3', 'ogg']
-        ffmpeg_exe = get_ffmpeg_binary()
         last_error = None
 
         for player_client in PLAYER_CLIENT_FALLBACKS:
             temp_dir = tempfile.mkdtemp()
-            ydl_opts = build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe)
+            ydl_opts = build_ydl_opts(temp_dir, is_audio, mode, player_client)
 
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -141,7 +132,7 @@ def handle_download():
                         if matched_files:
                             final_path = matched_files[0]
                         else:
-                            raise FileNotFoundError(f"Processed file missing: {final_path}")
+                            raise FileNotFoundError(f"Expected output file missing: {final_path}")
 
                     response = send_file(
                         final_path,
