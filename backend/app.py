@@ -6,12 +6,21 @@ from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
+
 # YouTube now requires solving JS challenges to get real format URLs, which
-# needs an external JS runtime (Deno recommended). The Render build step
-# installs Deno to the default location (~/.deno/bin) - make sure it's on
-# PATH so yt-dlp's subprocess calls can find it at runtime.
-_deno_bin_dir = os.path.join(os.path.expanduser('~'), '.deno', 'bin')
-if os.path.isdir(_deno_bin_dir):
+# needs an external JS runtime (Deno recommended). Render's build step and
+# runtime step can have different $HOME values, so installing to ~/.deno
+# isn't reliable - the Build Command instead installs Deno to a path tied
+# to the repo checkout itself (see DENO_INSTALL in the Build Command),
+# which stays consistent between build and runtime.
+_DENO_BIN_CANDIDATES = [
+    os.path.abspath(os.path.join(BASE_DIR, '..', '.deno', 'bin')),
+    os.path.join(os.path.expanduser('~'), '.deno', 'bin'),  # fallback for local dev
+]
+_deno_bin_dir = next((p for p in _DENO_BIN_CANDIDATES if os.path.isdir(p)), None)
+if _deno_bin_dir:
     os.environ['PATH'] = _deno_bin_dir + os.pathsep + os.environ.get('PATH', '')
 
 DENO_PATH = shutil.which('deno')
@@ -24,11 +33,8 @@ if DENO_PATH:
     except Exception as e:
         DENO_VERSION = f"found but failed to run: {e}"
 
-print(f"[startup] HOME={os.path.expanduser('~')} deno_bin_dir_exists={os.path.isdir(_deno_bin_dir)} "
-      f"deno_path={DENO_PATH} deno_version={DENO_VERSION}")
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
+print(f"[startup] HOME={os.path.expanduser('~')} checked_dirs={_DENO_BIN_CANDIDATES} "
+      f"deno_bin_dir={_deno_bin_dir} deno_path={DENO_PATH} deno_version={DENO_VERSION}")
 
 # Render always places secret files at /etc/secrets/<filename>, regardless
 # of the service's Root Directory setting - check there first. Fall back to
@@ -162,7 +168,8 @@ def handle_download():
     if not HAS_COOKIES:
         hint = " No cookies.txt was found on the server - this is very likely why every client failed."
     else:
-        hint = f" [deno_found={bool(DENO_PATH)} deno_path={DENO_PATH} deno_version={DENO_VERSION}]"
+        deno_info = f"[deno_found={bool(DENO_PATH)} deno_path={DENO_PATH} deno_version={DENO_VERSION}]"
+        hint = f" {deno_info}"
         # Every client failed even with cookies - find out what formats
         # yt-dlp can actually see for this video, to know if it's a real
         # format-selection bug or the video has no usable formats at all.
@@ -182,9 +189,9 @@ def handle_download():
                     f"{f.get('format_id')}:{f.get('ext')}:{f.get('vcodec')}/{f.get('acodec')}"
                     for f in formats[:15]
                 )
-                hint = f" Available formats seen ({len(formats)} total): {summary}"
+                hint = f" {deno_info} Available formats seen ({len(formats)} total): {summary}"
         except Exception as debug_e:
-            hint = f" Could not list formats either: {debug_e}"
+            hint = f" {deno_info} Could not list formats either: {debug_e}"
 
     return jsonify({"error": f"Failed to process download: {str(last_error)}.{hint}"}), 500
 
