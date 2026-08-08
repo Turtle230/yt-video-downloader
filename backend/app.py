@@ -5,6 +5,14 @@ from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
 
+# YouTube now requires solving JS challenges to get real format URLs, which
+# needs an external JS runtime (Deno recommended). The Render build step
+# installs Deno to the default location (~/.deno/bin) - make sure it's on
+# PATH so yt-dlp's subprocess calls can find it at runtime.
+_deno_bin_dir = os.path.join(os.path.expanduser('~'), '.deno', 'bin')
+if os.path.isdir(_deno_bin_dir):
+    os.environ['PATH'] = _deno_bin_dir + os.pathsep + os.environ.get('PATH', '')
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 
@@ -33,16 +41,15 @@ if _source_cookie_path:
         print(f"Failed to copy cookies.txt to a writable location: {e}")
 
 # Player-client fallback order.
-# 'web' is listed first because it's the client that actually honors
-# cookies properly - since YouTube now requires signed-in auth for many
-# requests, this needs to be tried first, not buried behind clients that
-# don't use cookies well anyway. The rest remain as backups in case a
-# specific video/endpoint behaves differently.
+# None = let yt-dlp pick its own default client rotation, which is smarter
+# than hardcoding one - it already knows to skip clients with known issues
+# (e.g. tv client formats are currently DRM-protected, mweb requires a PO
+# token we don't have). Only fall back to forcing a specific client if the
+# default behavior somehow fails.
 PLAYER_CLIENT_FALLBACKS = [
+    None,
     ['web'],
-    ['tv_embedded'],
     ['web_creator'],
-    ['mweb'],
     ['android', 'ios'],
 ]
 
@@ -69,8 +76,11 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client):
         'no_warnings': True,
         'nocheckcertificate': True,
         'restrictfilenames': True,  # avoids unicode/emoji filename issues on Linux
-        'extractor_args': {'youtube': {'player_client': player_client}},
+        'remote_components': ['ejs:github'],  # allow fetching updated JS challenge solver if needed
     }
+
+    if player_client is not None:
+        ydl_opts['extractor_args'] = {'youtube': {'player_client': player_client}}
 
     if HAS_COOKIES:
         ydl_opts['cookiefile'] = COOKIES_PATH
@@ -131,7 +141,7 @@ def handle_download():
 
         except Exception as e:
             last_error = e
-            print(f"yt-dlp failed with player_client={player_client} (cookies={'yes' if HAS_COOKIES else 'no'}): {e}")
+            print(f"yt-dlp failed with player_client={player_client or 'default'} (cookies={'yes' if HAS_COOKIES else 'no'}): {e}")
             shutil.rmtree(temp_dir, ignore_errors=True)
             continue  # try the next player client
 
@@ -139,6 +149,28 @@ def handle_download():
         hint = " No cookies.txt was found on the server - this is very likely why every client failed."
     else:
         hint = ""
+        # Every client failed even with cookies - find out what formats
+        # yt-dlp can actually see for this video, to know if it's a real
+        # format-selection bug or the video has no usable formats at all.
+        try:
+            debug_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'cookiefile': COOKIES_PATH,
+                'remote_components': ['ejs:github'],
+                'extractor_args': {'youtube': {'player_client': ['web']}},
+            }
+            with yt_dlp.YoutubeDL(debug_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                formats = info.get('formats', [])
+                summary = ", ".join(
+                    f"{f.get('format_id')}:{f.get('ext')}:{f.get('vcodec')}/{f.get('acodec')}"
+                    for f in formats[:15]
+                )
+                hint = f" Available formats seen ({len(formats)} total): {summary}"
+        except Exception as debug_e:
+            hint = f" Could not list formats either: {debug_e}"
 
     return jsonify({"error": f"Failed to process download: {str(last_error)}.{hint}"}), 500
 
