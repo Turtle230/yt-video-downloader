@@ -2,7 +2,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import imageio_ffmpeg
 from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
@@ -10,8 +9,17 @@ import yt_dlp
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
 
-# Retrieve dynamically bundled FFmpeg executable path
-FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+def get_ffmpeg_binary():
+    """Safely obtain system ffmpeg or fallback to imageio_ffmpeg."""
+    system_ffmpeg = shutil.which('ffmpeg')
+    if system_ffmpeg:
+        return system_ffmpeg
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception as e:
+        print(f"Warning: Could not load imageio_ffmpeg: {e}")
+        return None
 
 # YouTube JS runtime environment check
 _DENO_BIN_CANDIDATES = [
@@ -31,9 +39,6 @@ if DENO_PATH:
         ).stdout.strip().splitlines()[0]
     except Exception as e:
         DENO_VERSION = f"found but failed to run: {e}"
-
-print(f"[startup] HOME={os.path.expanduser('~')} ffmpeg={FFMPEG_PATH} "
-      f"deno_path={DENO_PATH} deno_version={DENO_VERSION}")
 
 # Cookie file detection
 _COOKIE_CANDIDATES = [
@@ -72,7 +77,7 @@ def index():
 def static_files(filename):
     return send_from_directory(FRONTEND_DIR, filename)
 
-def build_ydl_opts(temp_dir, is_audio, mode, player_client):
+def build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe):
     ydl_opts = {
         'format': 'bestaudio/best' if is_audio else 'bv*+ba/b',
         'merge_output_format': None if is_audio else 'mp4',
@@ -82,8 +87,10 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client):
         'nocheckcertificate': True,
         'restrictfilenames': True,
         'remote_components': ['ejs:github'],
-        'ffmpeg_location': FFMPEG_PATH,  # Dynamic FFmpeg executable location
     }
+
+    if ffmpeg_exe:
+        ydl_opts['ffmpeg_location'] = ffmpeg_exe
 
     if player_client is not None:
         ydl_opts['extractor_args'] = {'youtube': {'player_client': player_client}}
@@ -94,7 +101,7 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client):
     if is_audio:
         ydl_opts['postprocessors'] = [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': mode,  # Handles 'mp3' or 'ogg'
+            'preferredcodec': mode,
             'preferredquality': '192',
         }]
 
@@ -102,64 +109,63 @@ def build_ydl_opts(temp_dir, is_audio, mode, player_client):
 
 @app.route('/download', methods=['POST'])
 def handle_download():
-    data = request.get_json(silent=True) or {}
-    url = data.get('url', '').strip()
-    mode = data.get('mode', 'mp4')
+    try:
+        data = request.get_json(silent=True) or {}
+        url = data.get('url', '').strip()
+        mode = data.get('mode', 'mp4')
 
-    if not url:
-        return jsonify({"error": "Please enter a valid YouTube URL."}), 400
+        if not url:
+            return jsonify({"error": "Please enter a valid YouTube URL."}), 400
 
-    is_audio = mode in ['mp3', 'ogg']
-    last_error = None
+        is_audio = mode in ['mp3', 'ogg']
+        ffmpeg_exe = get_ffmpeg_binary()
+        last_error = None
 
-    for player_client in PLAYER_CLIENT_FALLBACKS:
-        temp_dir = tempfile.mkdtemp()
-        ydl_opts = build_ydl_opts(temp_dir, is_audio, mode, player_client)
+        for player_client in PLAYER_CLIENT_FALLBACKS:
+            temp_dir = tempfile.mkdtemp()
+            ydl_opts = build_ydl_opts(temp_dir, is_audio, mode, player_client, ffmpeg_exe)
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                downloaded_path = ydl.prepare_filename(info)
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    downloaded_path = ydl.prepare_filename(info)
 
-                base, _ = os.path.splitext(downloaded_path)
-                final_path = f"{base}.{mode}" if is_audio else f"{base}.mp4"
+                    base, _ = os.path.splitext(downloaded_path)
+                    final_path = f"{base}.{mode}" if is_audio else f"{base}.mp4"
 
-                if not os.path.exists(final_path):
-                    # Fallback check for alternate generated file extensions
-                    matched_files = [
-                        os.path.join(temp_dir, f) for f in os.listdir(temp_dir)
-                        if f.endswith(f".{mode}") or (not is_audio and f.endswith(".mp4"))
-                    ]
-                    if matched_files:
-                        final_path = matched_files[0]
-                    else:
-                        raise FileNotFoundError(f"Processed output file standard missing: {final_path}")
+                    if not os.path.exists(final_path):
+                        matched_files = [
+                            os.path.join(temp_dir, f) for f in os.listdir(temp_dir)
+                            if f.endswith(f".{mode}") or (not is_audio and f.endswith(".mp4"))
+                        ]
+                        if matched_files:
+                            final_path = matched_files[0]
+                        else:
+                            raise FileNotFoundError(f"Processed file missing: {final_path}")
 
-                response = send_file(
-                    final_path,
-                    as_attachment=True,
-                    download_name=os.path.basename(final_path)
-                )
+                    response = send_file(
+                        final_path,
+                        as_attachment=True,
+                        download_name=os.path.basename(final_path)
+                    )
 
-                @response.call_on_close
-                def cleanup(target_dir=temp_dir):
-                    shutil.rmtree(target_dir, ignore_errors=True)
+                    @response.call_on_close
+                    def cleanup(target_dir=temp_dir):
+                        shutil.rmtree(target_dir, ignore_errors=True)
 
-                return response
+                    return response
 
-        except Exception as e:
-            last_error = e
-            print(f"yt-dlp error (client={player_client or 'default'}): {e}")
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            continue
+            except Exception as e:
+                last_error = e
+                print(f"yt-dlp error (client={player_client or 'default'}): {e}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                continue
 
-    return jsonify({"error": f"Extraction failed: {str(last_error)}"}), 500
+        return jsonify({"error": f"Extraction failed: {str(last_error)}"}), 500
 
-# Global exception fallback handler to prevent raw HTML responses
-@app.errorhandler(Exception)
-def handle_unexpected_error(e):
-    print(f"Unhandled Exception: {e}")
-    return jsonify({"error": "An internal server error occurred while processing the request."}), 500
+    except Exception as top_err:
+        print(f"Unhandled server error: {top_err}")
+        return jsonify({"error": f"Internal Server Error: {str(top_err)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
