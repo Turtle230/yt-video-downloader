@@ -28,16 +28,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Server processing error.');
+                let errorMessage = `Server Error (${response.status})`;
+                
+                // Safely parse JSON error vs HTML response
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errData = await response.json();
+                    errorMessage = errData.error || errorMessage;
+                } else {
+                    const rawText = await response.text();
+                    console.error('Server HTML Error Response:', rawText);
+                }
+                throw new Error(errorMessage);
             }
 
             const blob = await response.blob();
             const downloadUrl = window.URL.createObjectURL(blob);
             
-            // Extract filename from headers if available
             const contentDisposition = response.headers.get('Content-Disposition');
-            let fileName = 'download.mp4';
+            let fileName = `download.${mode === 'ogg' ? 'ogg' : mode === 'mp3' ? 'mp3' : 'mp4'}`;
             if (contentDisposition && contentDisposition.includes('filename=')) {
                 fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
             }
