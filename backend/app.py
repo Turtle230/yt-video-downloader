@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 import tempfile
 from flask import Flask, request, send_from_directory, jsonify, send_file
 from flask_cors import CORS
@@ -12,6 +13,19 @@ import yt_dlp
 _deno_bin_dir = os.path.join(os.path.expanduser('~'), '.deno', 'bin')
 if os.path.isdir(_deno_bin_dir):
     os.environ['PATH'] = _deno_bin_dir + os.pathsep + os.environ.get('PATH', '')
+
+DENO_PATH = shutil.which('deno')
+DENO_VERSION = None
+if DENO_PATH:
+    try:
+        DENO_VERSION = subprocess.run(
+            [DENO_PATH, '--version'], capture_output=True, text=True, timeout=10
+        ).stdout.strip().splitlines()[0]
+    except Exception as e:
+        DENO_VERSION = f"found but failed to run: {e}"
+
+print(f"[startup] HOME={os.path.expanduser('~')} deno_bin_dir_exists={os.path.isdir(_deno_bin_dir)} "
+      f"deno_path={DENO_PATH} deno_version={DENO_VERSION}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend'))
@@ -148,7 +162,7 @@ def handle_download():
     if not HAS_COOKIES:
         hint = " No cookies.txt was found on the server - this is very likely why every client failed."
     else:
-        hint = ""
+        hint = f" [deno_found={bool(DENO_PATH)} deno_path={DENO_PATH} deno_version={DENO_VERSION}]"
         # Every client failed even with cookies - find out what formats
         # yt-dlp can actually see for this video, to know if it's a real
         # format-selection bug or the video has no usable formats at all.
