@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!downloadBtn || !urlInput) return;
 
+    let timerInterval = null;
+
     downloadBtn.addEventListener('click', async () => {
         const url = urlInput.value.trim();
         const mode = modeSelect ? modeSelect.value : 'mp4';
@@ -16,7 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setLoadingState(true);
-        updateStatus('Downloading & processing stream on server...');
+        
+        let seconds = 0;
+        updateStatus(`Downloading... ${seconds}s`);
+
+        timerInterval = setInterval(() => {
+            seconds++;
+            updateStatus(`Downloading... ${seconds}s`);
+        }, 1000);
 
         try {
             const response = await fetch('/download', {
@@ -27,11 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ url, mode })
             });
 
+            clearInterval(timerInterval);
+
             if (!response.ok) {
                 let errorMessage = `Server Error (${response.status})`;
-                
-                // Safely parse JSON error vs HTML response
                 const contentType = response.headers.get('content-type');
+                
                 if (contentType && contentType.includes('application/json')) {
                     const errData = await response.json();
                     errorMessage = errData.error || errorMessage;
@@ -59,9 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
             a.remove();
             window.URL.revokeObjectURL(downloadUrl);
 
-            updateStatus('Download complete!', 'success');
+            updateStatus(`Download complete! (${seconds}s)`, 'success');
 
         } catch (err) {
+            clearInterval(timerInterval);
             console.error('Download error:', err);
             updateStatus(`Error: ${err.message}`, 'error');
         } finally {
